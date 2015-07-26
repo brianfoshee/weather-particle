@@ -42,7 +42,7 @@ float pascals = 0;
 float altf = 0;
 float baroTemp = 0;
 
-int count = 0;
+unsigned long last = 0;
 
 HTU21D htu = HTU21D();//create instance of HTU21D Temp and humidity sensor
 MPL3115A2 baro = MPL3115A2();//create instance of MPL3115A2 barrometric sensor
@@ -72,7 +72,6 @@ void setup()
 
   baro.setOversampleRate(7); // Set Oversample to the recommended 128
   baro.enableEventFlags(); //Necessary register calls to enble temp, baro ansd alt
-
 }
 //---------------------------------------------------------------
 void loop()
@@ -81,21 +80,39 @@ void loop()
   calcWeather();
   //Rather than use a delay, keeping track of a counter allows the photon to
   //still take readings and do work in between printing out data.
-  count++;
+  unsigned long now = millis();
   //alter this number to change the amount of time between each reading
-  if(count == 5)//prints roughly every 10 seconds for every 5 counts
+  if(now - last > 10000)//prints roughly every 10 seconds
   {
+    last = now;
     printInfo();
     sendInfo();
-    count = 0;
   }
 }
 
 void sendInfo()
 {
+  /* sprintf() doesn't work yet with %f formatter.
   char data[255];
-  sprintf(data, "{\"temperature\": %f,\"humidity\": %f,\"pressure\": %f,\"altitude\": %f}", (tempf+baroTemp)/2, humidity, pascals, altf);
-  Spark.publish("weather.test.01", data, 60, PRIVATE);
+  sprintf(data, "{\"temperature\": %d,\"humidity\": %f,\"pressure\": %f,\"altitude\": %f}", (tempf+baroTemp)/2, humidity, pascals, altf);
+  */
+  String d;
+  d.reserve(255);
+  d.concat("{");
+  d.concat("\"temperature\":");
+  d.concat((tempf+baroTemp)/2);
+  d.concat(",");
+  d.concat("\"humidity\":");
+  d.concat(humidity);
+  d.concat(",");
+  d.concat("\"pressure\":");
+  d.concat(pascals);
+  d.concat(",");
+  d.concat("\"altitude\":");
+  d.concat(altf);
+  d.concat("}");
+  Serial.println(d);
+  Spark.publish("weather.test.01", d, 60, PRIVATE);
 }
 
 //---------------------------------------------------------------
@@ -104,17 +121,17 @@ void printInfo()
   //This function prints the weather data out to the default Serial Port
 
   //Take the temp reading from each sensor and average them.
-  Serial.print("Temp:");
+  Serial.print("Avg Temp:");
   Serial.print((tempf+baroTemp)/2);
   Serial.print("F, ");
 
   //Or you can print each temp separately
-  /*Serial.print("HTU21D Temp: ");
-    Serial.print(tempf);
-    Serial.print("F, ");
-    Serial.print("Baro Temp: ");
-    Serial.print(baroTemp);
-    Serial.print("F, ");*/
+  Serial.print("HTU21D Temp: ");
+  Serial.print(tempf);
+  Serial.print("F, ");
+  Serial.print("Baro Temp: ");
+  Serial.print(baroTemp);
+  Serial.print("F, ");
 
   Serial.print("Humidity:");
   Serial.print(humidity);
