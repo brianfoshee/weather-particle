@@ -126,6 +126,8 @@ float batt_lvl = 11.8; //[analog value from 0 to 1023]
 // volatiles are subject to modification by IRQs
 volatile unsigned long raintime, rainlast, raininterval, rain;
 
+int timeSynced = 0;
+
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 //Interrupt routines (these are called by the hardware interrupts, not by the main code)
@@ -242,8 +244,13 @@ void loop()
 			windgust_10m[minutes_10m] = 0; //Zero out this minute's gust
 		}
 
-    if (Time.hour() == 0) {
+    if (Time.hour() == 0 && timeSynced == 0) {
       Particle.syncTime();
+      timeSynced = 1;
+    }
+
+    if (Time.hour() == 1) {
+      timeSynced = 0;
     }
 
     calcWeather();
