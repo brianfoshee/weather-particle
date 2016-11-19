@@ -48,22 +48,8 @@
 #include "SparkFun_Photon_Weather_Shield_Library.h"
 #include "math.h"   //For Dew Point Calculation
 
-//Wunderground Vars
-
-//char SERVER[] = "rtupdate.wunderground.com";        //Rapidfire update server - for multiple sends per minute
-char SERVER [] = "weatherstation.wunderground.com";   //Standard server - for sends once per minute or less
-char WEBPAGE [] = "GET /weatherstation/updateweatherstation.php?";
-
-//Station Identification
-char ID [] = ""; //Your station ID here
-char PASSWORD [] = ""; //your Weather Underground password here
-
-TCPClient client;
-
-//UDP uclient;
-
-//IPAddress remoteIP(159, 203, 144, 95);
-//int port = 8125;
+PRODUCT_ID(764);
+PRODUCT_VERSION(1);
 
 //Create Instance of HTU21D or SI7021 temp and humidity sensor and MPL3115A2 barometric sensor
 Weather sensor;
@@ -173,11 +159,7 @@ void wspeedIRQ()
 //---------------------------------------------------------------
 void setup()
 {
-  WiFi.selectAntenna(ANT_EXTERNAL);
-
-  //uclient.begin(8888);
-
-  Serial.begin(9600);   // open serial over USB at 9600 baud
+  WiFi.selectAntenna(ANT_AUTO);
 
   pinMode(WSPEED, INPUT_PULLUP); // input from wind meters windspeed sensor
   pinMode(RAIN, INPUT_PULLUP); // input from wind meters rain gauge sensor
@@ -210,6 +192,8 @@ void setup()
 
   // turn on interrupts
   interrupts();
+
+  delay(10000);
 }
 
 //---------------------------------------------------------------
@@ -258,10 +242,12 @@ void loop()
 			windgust_10m[minutes_10m] = 0; //Zero out this minute's gust
 		}
 
-		//Report all readings every second
+    if (Time.hour() == 0) {
+      Particle.syncTime();
+    }
+
     calcWeather();
-		printWeather();
-    sendToWU();
+    publishWeather();
 
 	}
 
@@ -272,108 +258,35 @@ void loop()
 
 }
 
-//---------------------------------------------------------------
-void printWeather()
-{
-//This function prints the weather data out to the default Serial Port
-
-  Serial.print("Temp:");
-  Serial.print(tempF);
-  Serial.print("F, ");
-
-  Serial.print("Humidity:");
-  Serial.print(humidity);
-  Serial.print("%, ");
-
-  Serial.print("Baro_Temp:");
-  Serial.print(baroTempF);
-  Serial.print("F, ");
-
-  Serial.print("Humid_Temp:");
-  Serial.print(humTempF);
-  Serial.print("F, ");
-
-  Serial.print("Pressure:");
-  Serial.print(pascals/100);
-  Serial.print("hPa, ");
-  Serial.print(inches);
-  Serial.println("in.Hg");
-  //The MPL3115A2 outputs the pressure in Pascals. However, most weather stations
-  //report pressure in hectopascals or millibars. Divide by 100 to get a reading
-  //more closely resembling what online weather reports may say in hPa or mb.
-  //Another common unit for pressure is Inches of Mercury (in.Hg). To convert
-  //from mb to in.Hg, use the following formula. P(inHg) = 0.0295300 * P(mb)
-  //More info on conversion can be found here:
-  //www.srh.noaa.gov/images/epz/wxcalc/pressureConversion.pdf
-
-  //If in altitude mode, print with these lines
-  //Serial.print("Altitude:");
-  //Serial.print(altf);
-  //Serial.println("ft.");
-
-}
-
-//---------------------------------------------------------------
-void sendToWU()
-{
-
-/*
-  uclient.beginPacket(remoteIP, port);
-  uclient.write("weather.tempf:");
-  uclient.write(tempF);
-  uclient.write("|g");
-  uclient.endPacket();
-  */
-
-  Serial.println("connecting...");
-
-  if (client.connect(SERVER, 80)) {
-  Serial.println("Connected");
-  client.print(WEBPAGE);
-  client.print("ID=");
-  client.print(ID);
-  client.print("&PASSWORD=");
-  client.print(PASSWORD);
-  client.print("&dateutc=now");      //can use 'now' instead of time if sending in real time
-  client.print("&tempf=");
-  client.print(tempF);
-  client.print("&dewptf=");
-  client.print(dewptF);
-  client.print("&humidity=");
-  client.print(humidity);
-  client.print("&baromin=");
-  client.print(inches);
-  /*
-  client.print("&winddir=");
-  client.print(winddir);
-  client.print("&windspeedmph=");
-  client.print(windspeedmph);
-  client.print("&windgustdir=");
-  client.print(windgustdir);
-  client.print("&windspdmph_avg2m=");
-  client.print(windspdmph_avg2m);
-  client.print("&winddir_avg2m=");
-  client.print(winddir_avg2m);
-  client.print("&windgustmph_10m=");
-  client.print(windgustmph_10m);
-  client.print("&windgustdir_10m=");
-  client.print(windgustdir_10m);
-  client.print("&rainin=");
-  client.print(rainin);
-  client.print("&dailyrainin=");
-  client.print(dailyrainin);
-  */
-  client.print("&softwaretype=Particle-Photon");
-  client.print("&action=updateraw");    //Standard update rate - for sending once a minute or less
-  /* send to rtupdate.wunderground.com if using rtfreq
-  client.print("&action=updateraw&realtime=1&rtfreq=30");
-  */
-  client.println();
-  Serial.println("Upload complete");
-  }else{
-    Serial.println(F("Connection failed"));
-  return;
-  }
+void publishWeather() {
+  String x = "";
+  x = String(x + "tf=");
+  x = String(x + String(tempF));
+  x = String(x + "&df=");
+  x = String(x + String(dewptF));
+  x = String(x + "&h=");
+  x = String(x + String(humidity));
+  x = String(x + "&b=");
+  x = String(x + String(inches));
+  x = String(x + "&wd=");
+  x = String(x + String(winddir));
+  x = String(x + "&wsm=");
+  x = String(x + String(windspeedmph));
+  x = String(x + "&wgd=");
+  x = String(x + String(windgustdir));
+  x = String(x + "&wsm2=");
+  x = String(x + String(windspdmph_avg2m));
+  x = String(x + "&wd2=");
+  x = String(x + String(winddir_avg2m));
+  x = String(x + "&wgm10=");
+  x = String(x + String(windgustmph_10m));
+  x = String(x + "&wgd10=");
+  x = String(x + String(windgustdir_10m));
+  x = String(x + "&ri=");
+  x = String(x + String(rainin));
+  x = String(x + "&dri=");
+  x = String(x + String(dailyrainin));
+  Particle.publish("weather", x, PRIVATE);
 }
 
 //Calculates each of the variables that wunderground is expecting
